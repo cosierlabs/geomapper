@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Image, TouchableOpacity, Animated, Easing } from "react-native";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router"; 
 import icons from "../../constants/icons";
 
 const TabIcon = ({
@@ -46,36 +46,39 @@ const HeaderIcon = ({ icon, onPress }: { icon: any; onPress: () => void }) => {
 };
 
 const DropdownMenu = ({ visible }: { visible: boolean }) => {
-  const translateY = useRef(new Animated.Value(-100)).current; 
-  const opacity = useRef(new Animated.Value(0)).current; 
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const router = useRouter(); 
+
+  const handleNavigation = (screenName: string) => {
+    router.push(screenName as never); 
+  };
 
   useEffect(() => {
     if (visible) {
-
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: 0, 
+          toValue: 0,
           duration: 70,
           easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 1, // Fades in
+          toValue: 1, 
           duration: 70,
           useNativeDriver: true,
         }),
       ]).start();
     } else {
-      // Animate out
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: -100, 
+          toValue: -100,
           duration: 300,
           easing: Easing.in(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 0, 
+          toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
@@ -95,11 +98,18 @@ const DropdownMenu = ({ visible }: { visible: boolean }) => {
         transform: [{ translateY: translateY }],
       }}
     >
-      <Text className="font-pregular text-md py-2">Profile</Text>
-      <Text className="font-pregular text-md py-2">Settings</Text>
-      <Text className="font-pregular text-md py-2">Help</Text>
-      <Text className="font-pregular text-md py-2">Feedback</Text>
-      <Text className="font-pregular text-red-500 text-md py-2">Log out</Text>
+      <TouchableOpacity onPress={() => handleNavigation("/profile")}>
+        <Text className="font-pregular text-md py-2">Profile</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleNavigation("/user-settings")}>
+        <Text className="font-pregular text-md py-2">Settings</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleNavigation("/help")}>
+        <Text className="font-pregular text-md py-2">Help</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleNavigation("/feedback")}>
+        <Text className="font-pregular text-md py-2">Feedback</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -135,7 +145,6 @@ const TabsLayout = () => {
               <HeaderIcon icon={icons.menu} onPress={toggleDropdown} />
             </>
           ),
-
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               icon={icons.home}
@@ -146,7 +155,6 @@ const TabsLayout = () => {
           ),
         }}
       />
-
       <Tabs.Screen
         name="sst-map"
         options={{
@@ -200,7 +208,6 @@ const TabsLayout = () => {
               <HeaderIcon icon={icons.menu} onPress={toggleDropdown} />
             </>
           ),
-
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               icon={icons.profile}

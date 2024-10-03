@@ -1,118 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
+import { View, Text, StyleSheet } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+import { BleManager, Device, Characteristic } from 'react-native-ble-plx';
+import base64 from 'react-native-base64';
 
-const { width, height } = Dimensions.get('window');
-const centerX = width / 2;
-const centerY = height;
-const radius = Math.min(width, height) * 0.8;
+const manager = new BleManager();
 
-export const Sonar = () => {
-  const [angle, setAngle] = useState(0);
-  const [distance, setDistance] = useState(0);
-  const [direction, setDirection] = useState(1); // 1 for right, -1 for left
+interface ChartDataPoint {
+  x: number;
+  y: number;
+}
+
+const BluetoothDataDisplay: React.FC = () => {
+  const [angle, setAngle] = useState<number>(0);
+  const [distance, setDistance] = useState<number>(0);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
   useEffect(() => {
-    // Simulating Arduino data
-    // Replace this with actual Arduino integration
-    const interval = setInterval(() => {
-      setAngle((prevAngle) => {
-        const newAngle = prevAngle + 3 * direction;
-        if (newAngle >= 180 || newAngle <= 0) {
-          setDirection((prevDirection) => -prevDirection);
-        }
-        return newAngle < 0 ? 0 : newAngle > 180 ? 180 : newAngle;
-      });
-      setDistance(Math.random() * 100);
-    }, 100);
+    const subscription = manager.onStateChange((state) => {
+      if (state === 'PoweredOn') {
+        scanAndConnect();
+      }
+    }, true);
 
-    return () => clearInterval(interval);
-  }, [direction]);
-  
+    return () => subscription.remove();
+  }, []);
 
-  const polarToCartesian = (angle: number, distance: number) => {
-    const x = centerX + distance * Math.cos((angle * Math.PI) / 180);
-    const y = centerY - distance * Math.sin((angle * Math.PI) / 180);
-    return { x, y };
-  };
+  const scanAndConnect = () => {
+    manager.startDeviceScan(null, null, (error, device) => {
+      if (error) {
+        console.log(error);
+        return;
+      }
 
-  const renderArcs = () => {
-    return [0.25, 0.5, 0.75, 1].map((scale, index) => (
-      <Path
-        key={index}
-        d={`M ${centerX - radius * scale} ${centerY} A ${radius * scale} ${radius * scale} 0 0 1 ${centerX + radius * scale} ${centerY}`}
-        stroke="rgba(98, 245, 31, 0.5)"
-        strokeWidth="2"
-        fill="none"
-      />
-    ));
-  };
-
-  const renderLines = () => {
-    return [0, 30, 60, 90, 120, 150, 180].map((angle, index) => {
-      const { x, y } = polarToCartesian(angle, radius);
-      return (
-        <Line
-          key={index}
-          x1={centerX}
-          y1={centerY}
-          x2={x}
-          y2={y}
-          stroke="rgba(98, 245, 31, 0.5)"
-          strokeWidth="1"
-        />
-      );
+      if (device && device.name === 'HC-05') {
+        manager.stopDeviceScan();
+        connectToDevice(device);
+      }
     });
   };
 
-  const renderSweepLine = () => {
-    const { x, y } = polarToCartesian(angle, radius);
-    return (
-      <Line
-        x1={centerX}
-        y1={centerY}
-        x2={x}
-        y2={y}
-        stroke="rgb(30, 250, 60)"
-        strokeWidth="3"
-      />
-    );
+  const connectToDevice = (device: Device) => {
+    device.connect()
+      .then((connectedDevice) => connectedDevice.discoverAllServicesAndCharacteristics())
+      .then((connectedDevice) => {
+        connectedDevice.monitorCharacteristicForService(
+          'SERVICE_UUID',
+          'CHARACTERISTIC_UUID',
+          (error, characteristic) => {
+            if (error) {
+              console.log(error);
+              return;
+            }
+            if (characteristic && characteristic.value) {
+              const decodedValue = base64.decode(characteristic.value);
+              const [newAngle, newDistance] = decodedValue.split(',');
+              const parsedAngle = parseInt(newAngle, 10);
+              const parsedDistance = parseInt(newDistance, 10);
+              if (!isNaN(parsedAngle) && !isNaN(parsedDistance)) {
+                setAngle(parsedAngle);
+                setDistance(parsedDistance);
+                updateChartData(parsedAngle, parsedDistance);
+              }
+            }
+          }
+        );
+      })
+      .catch((error) => console.log(error));
   };
 
-  const renderObject = () => {
-    if (distance > 0 && distance <= 100) {
-      const scaledDistance = (distance / 100) * radius;
-      const { x, y } = polarToCartesian(angle, scaledDistance);
-      return (
-        <Circle
-          cx={x}
-          cy={y}
-          r="5"
-          fill="rgb(255, 10, 10)"
-        />
-      );
-    }
-    return null;
+  const updateChartData = (newAngle: number, newDistance: number) => {
+    setChartData(prevData => {
+      const newData = [...prevData, { x: newAngle, y: newDistance }];
+      if (newData.length > 50) newData.shift();
+      return newData;
+    });
+  };
+
+  const chartDataFormatted = {
+    labels: chartData.map(point => point.x.toString()),
+    datasets: [
+      {
+        data: chartData.map(point => point.y),
+      },
+    ],
   };
 
   return (
     <View style={styles.container}>
-      <Svg width={width} height={height}>
-        <Circle cx={centerX} cy={centerY} r={radius} fill="rgba(0, 0, 0, 0.8)" />
-        {renderArcs()}
-        {renderLines()}
-        {renderSweepLine()}
-        {renderObject()}
-        <SvgText x={10} y={30} fill="rgb(98, 245, 31)" fontSize="20">
-          Angle: {angle.toFixed(0)}°
-        </SvgText>
-        <SvgText x={10} y={60} fill="rgb(98, 245, 31)" fontSize="20">
-          Distance: {distance.toFixed(1)} cm
-        </SvgText>
-        <SvgText x={width - 70} y={centerY - 10} fill="rgb(98, 245, 31)" fontSize="16">0°</SvgText>
-        <SvgText x={centerX - 10} y={centerY - radius - 10} fill="rgb(98, 245, 31)" fontSize="16">90°</SvgText>
-        <SvgText x={10} y={centerY - 10} fill="rgb(98, 245, 31)" fontSize="16">180°</SvgText>
-      </Svg>
+      <Text style={styles.text}>Angle: {angle}°</Text>
+      <Text style={styles.text}>Distance: {distance} cm</Text>
+      <LineChart
+        data={chartDataFormatted}
+        width={300}
+        height={200}
+        chartConfig={{
+          backgroundColor: '#ffffff',
+          backgroundGradientFrom: '#ffffff',
+          backgroundGradientTo: '#ffffff',
+          decimalPlaces: 0,
+          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+          style: {
+            borderRadius: 16
+          }
+        }}
+        bezier
+        style={styles.chart}
+      />
     </View>
   );
 };
@@ -120,9 +114,19 @@ export const Sonar = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5FCFF',
   },
+  text: {
+    fontSize: 20,
+    textAlign: 'center',
+    margin: 10,
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16
+  }
 });
 
-export default Sonar;
+export default BluetoothDataDisplay;

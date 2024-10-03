@@ -10,7 +10,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "eas-build-pre-install": "echo $GOOGLE_SERVICES_BASE64 | base64 --decode > ./android/app/google-services.json"
   },
   "jest": {
     "preset": "jest-expo"

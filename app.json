@@ -22,7 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.geomapper.map",
-      "googleServicesFile": "./android/google-services.json"
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "bundler": "metro",

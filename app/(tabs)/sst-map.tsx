@@ -3,6 +3,7 @@ import { View, StyleSheet, Animated, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
+
 const SSTMap = () => {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const pulsatingCircleAnimation = new Animated.Value(0);
@@ -43,6 +44,7 @@ const SSTMap = () => {
             duration: 1000,
             useNativeDriver: true,
           }),
+          
         ])
       ).start();
     }
